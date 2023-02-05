@@ -26,20 +26,20 @@ sys.path.append(os.path.join(ROOT_DIR, 'models'))
 def parse_args():
     '''PARAMETERS'''
     parser = argparse.ArgumentParser('training')
-    parser.add_argument('--use_cpu', action='store_true', default=False, help='use cpu mode')
-    parser.add_argument('--gpu', type=str, default='0', help='specify gpu device')
-    parser.add_argument('--batch_size', type=int, default=24, help='batch size in training')
+    parser.add_argument('--use_cpu', action='store_true', default=False, help='use cpu mode')   # cpu
+    parser.add_argument('--gpu', type=str, default='0', help='specify gpu device')   # gpu
+    parser.add_argument('--batch_size', type=int, default=24, help='batch size in training')   # batchsize
     parser.add_argument('--model', default='pointnet_cls', help='model name [default: pointnet_cls]')
-    parser.add_argument('--num_category', default=40, type=int, choices=[10, 40],  help='training on ModelNet10/40')
+    parser.add_argument('--num_category', default=40, type=int, choices=[10, 40],  help='training on ModelNet10/40')   # 使用的数据集中的类别数
     parser.add_argument('--epoch', default=200, type=int, help='number of epoch in training')
     parser.add_argument('--learning_rate', default=0.001, type=float, help='learning rate in training')
     parser.add_argument('--num_point', type=int, default=1024, help='Point Number')
-    parser.add_argument('--optimizer', type=str, default='Adam', help='optimizer for training')
-    parser.add_argument('--log_dir', type=str, default=None, help='experiment root')
-    parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
-    parser.add_argument('--use_normals', action='store_true', default=False, help='use normals')
-    parser.add_argument('--process_data', action='store_true', default=False, help='save data offline')
-    parser.add_argument('--use_uniform_sample', action='store_true', default=False, help='use uniform sampiling')
+    parser.add_argument('--optimizer', type=str, default='Adam', help='optimizer for training')   # 优化器
+    parser.add_argument('--log_dir', type=str, default=None,  help='experiment root')
+    parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')   # 学习率下降趋势
+    parser.add_argument('--use_normals', action='store_true', default=False, help='use normals')   # 是否使用法向量
+    parser.add_argument('--process_data', action='store_true', default=False, help='save data offline')   # 预训练数据
+    parser.add_argument('--use_uniform_sample', action='store_true', default=False, help='use uniform sampiling')   # 使用点的gridsample空间均匀采样
     return parser.parse_args()
 
 
@@ -79,14 +79,14 @@ def test(model, loader, num_class=40):
 
 
 def main(args):
-    def log_string(str):
+    def log_string(str):    # log函数
         logger.info(str)
         print(str)
 
-    '''HYPER PARAMETER'''
+    '''HYPER PARAMETER'''    # 调用显卡编号
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
-    '''CREATE DIR'''
+    '''CREATE DIR'''    # 文件夹创建
     timestr = str(datetime.datetime.now().strftime('%Y-%m-%d_%H-%M'))
     exp_dir = Path('./log/')
     exp_dir.mkdir(exist_ok=True)
@@ -102,7 +102,7 @@ def main(args):
     log_dir = exp_dir.joinpath('logs/')
     log_dir.mkdir(exist_ok=True)
 
-    '''LOG'''
+    '''LOG'''    # log记录
     args = parse_args()
     logger = logging.getLogger("Model")
     logger.setLevel(logging.INFO)
@@ -114,19 +114,19 @@ def main(args):
     log_string('PARAMETER ...')
     log_string(args)
 
-    '''DATA LOADING'''
+    '''DATA LOADING'''    # 载入数据
     log_string('Load dataset ...')
     data_path = 'data/modelnet40_normal_resampled/'
 
     train_dataset = ModelNetDataLoader(root=data_path, args=args, split='train', process_data=args.process_data)
     test_dataset = ModelNetDataLoader(root=data_path, args=args, split='test', process_data=args.process_data)
-    trainDataLoader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=10, drop_last=True)
-    testDataLoader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=10)
+    trainDataLoader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, drop_last=True)  # 训练集需要打乱顺序（shuffle） # 原来num_workers=10  #一般开始是将num_workers设置为等于计算机上的CPU数量
+    testDataLoader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)    # 原来num_workers=10
 
-    '''MODEL LOADING'''
+    '''MODEL LOADING'''    # 载入模型
     num_class = args.num_category
     model = importlib.import_module(args.model)
-    shutil.copy('./models/%s.py' % args.model, str(exp_dir))
+    shutil.copy('./models/%s.py' % args.model, str(exp_dir))    # 将过程中的参数保存保存，方便后面查找。
     shutil.copy('models/pointnet2_utils.py', str(exp_dir))
     shutil.copy('./train_classification.py', str(exp_dir))
 
@@ -134,10 +134,11 @@ def main(args):
     criterion = model.get_loss()
     classifier.apply(inplace_relu)
 
-    if not args.use_cpu:
+    if not args.use_cpu:    # 是否调用cuda
         classifier = classifier.cuda()
         criterion = criterion.cuda()
 
+    # 检查点（每个epoch备份）
     try:
         checkpoint = torch.load(str(exp_dir) + '/checkpoints/best_model.pth')
         start_epoch = checkpoint['epoch']
@@ -147,6 +148,7 @@ def main(args):
         log_string('No existing model, starting training from scratch...')
         start_epoch = 0
 
+    # 优化器
     if args.optimizer == 'Adam':
         optimizer = torch.optim.Adam(
             classifier.parameters(),
@@ -155,9 +157,10 @@ def main(args):
             eps=1e-08,
             weight_decay=args.decay_rate
         )
-    else:
+    else:   # 不存在则使用随机梯度
         optimizer = torch.optim.SGD(classifier.parameters(), lr=0.01, momentum=0.9)
 
+    # 调度器：防止卡死在一个位置
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
     global_epoch = 0
     global_step = 0
@@ -166,15 +169,18 @@ def main(args):
 
     '''TRANING'''
     logger.info('Start training...')
-    for epoch in range(start_epoch, args.epoch):
+    # 每个epoch
+    for epoch in range(start_epoch, args.epoch):    # 从开始的epoch到设置的总epoch数量
         log_string('Epoch %d (%d/%s):' % (global_epoch + 1, epoch + 1, args.epoch))
         mean_correct = []
         classifier = classifier.train()
 
         scheduler.step()
-        for batch_id, (points, target) in tqdm(enumerate(trainDataLoader, 0), total=len(trainDataLoader), smoothing=0.9):
-            optimizer.zero_grad()
+        # 每个batch/迭代
+        for batch_id, (points, target) in tqdm(enumerate(trainDataLoader, 0), total=len(trainDataLoader), smoothing=0.9):   # tqdm进度条方式加载
+            optimizer.zero_grad()   # 每个迭代优化器清零
 
+            # 数据增强
             points = points.data.numpy()
             points = provider.random_point_dropout(points)
             points[:, :, 0:3] = provider.random_scale_point_cloud(points[:, :, 0:3])
@@ -228,5 +234,5 @@ def main(args):
 
 
 if __name__ == '__main__':
-    args = parse_args()
+    args = parse_args() # 控制台解析参数。
     main(args)
