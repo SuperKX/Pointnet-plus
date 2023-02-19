@@ -6,7 +6,7 @@ from torch.autograd import Variable
 import numpy as np
 import torch.nn.functional as F
 
-
+# t-net
 class STN3d(nn.Module):
     def __init__(self, channel):
         super(STN3d, self).__init__()
@@ -84,14 +84,14 @@ class STNkd(nn.Module):
         x = x.view(-1, self.k, self.k)
         return x
 
-
+# 网络编码（升维）
 class PointNetEncoder(nn.Module):
     def __init__(self, global_feat=True, feature_transform=False, channel=3):
         super(PointNetEncoder, self).__init__()
         self.stn = STN3d(channel)
-        self.conv1 = torch.nn.Conv1d(channel, 64, 1)
-        self.conv2 = torch.nn.Conv1d(64, 128, 1)
-        self.conv3 = torch.nn.Conv1d(128, 1024, 1)
+        self.conv1 = torch.nn.Conv1d(channel, 64, 1)    # 升维 3->64。# Conv1d(初始值，目标值，输入3d张量要修改的维度序号)接受3维张量，（24，3，1024）->(24，64，1024)
+        self.conv2 = torch.nn.Conv1d(64, 128, 1)  # 升维 64->128：（24，3，1024）->(24，64，1024)
+        self.conv3 = torch.nn.Conv1d(128, 1024, 1)  # 升维 128->1024
         self.bn1 = nn.BatchNorm1d(64)
         self.bn2 = nn.BatchNorm1d(128)
         self.bn3 = nn.BatchNorm1d(1024)
@@ -101,34 +101,35 @@ class PointNetEncoder(nn.Module):
             self.fstn = STNkd(k=64)
 
     def forward(self, x):
-        B, D, N = x.size()
-        trans = self.stn(x)
+        B, D, N = x.size()  # batchsize，chanel，点数量 （24，3，1024）
+        trans = self.stn(x)  # T-net
         x = x.transpose(2, 1)
         if D > 3:
             feature = x[:, :, 3:]
             x = x[:, :, :3]
-        x = torch.bmm(x, trans)
+        x = torch.bmm(x, trans)  # 1）x进行T-net变换
         if D > 3:
             x = torch.cat([x, feature], dim=2)
         x = x.transpose(2, 1)
-        x = F.relu(self.bn1(self.conv1(x)))
+        x = F.relu(self.bn1(self.conv1(x)))     # 2）卷积升64维-标准化-relu （论文中进行两次64，此处只有一次？）
 
-        if self.feature_transform:
-            trans_feat = self.fstn(x)
+        if self.feature_transform:  # 3）是否进行feature_transform（论文中环节）
+            trans_feat = self.fstn(x)  # 特征转换
             x = x.transpose(2, 1)
-            x = torch.bmm(x, trans_feat)
+            x = torch.bmm(x, trans_feat)  # 乘以特征矩阵
             x = x.transpose(2, 1)
         else:
             trans_feat = None
 
         pointfeat = x
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = self.bn3(self.conv3(x))
-        x = torch.max(x, 2, keepdim=True)[0]
-        x = x.view(-1, 1024)
-        if self.global_feat:
+        x = F.relu(self.bn2(self.conv2(x)))  # 4) 卷积升128维-标准化-relu
+        x = self.bn3(self.conv3(x))  # 5) 卷积升1024维-标准化-relu
+        # 6）maxpooling
+        x = torch.max(x, 2, keepdim=True)[0]  # 第3(序号)维取max，即点数量n->1，由三维张量变2维张量：（24，1024，n）->（24，1024，1）
+        x = x.view(-1, 1024)  # 扩充维度回到3维
+        if self.global_feat:  # 分类任务
             return x, trans, trans_feat
-        else:
+        else:   # 分割任务
             x = x.view(-1, 1024, 1).repeat(1, 1, N)
             return torch.cat([x, pointfeat], 1), trans, trans_feat
 
