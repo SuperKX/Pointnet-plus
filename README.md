@@ -2,36 +2,51 @@
 
 This repo is implementation for [PointNet](http://openaccess.thecvf.com/content_cvpr_2017/papers/Qi_PointNet_Deep_Learning_CVPR_2017_paper.pdf) and [PointNet++](http://papers.nips.cc/paper/7095-pointnet-deep-hierarchical-feature-learning-on-point-sets-in-a-metric-space.pdf) in pytorch.
 
-## Update
-**2021/03/27:** 
+## Installation
+本机安装环境是win10
+### 安装pycharm、anocanda、cuda、cudnn等
+此处不再赘述，本机显卡3080，安装的cuda版本 v11.1
 
-(1) Release pre-trained models for semantic segmentation, where PointNet++ can achieve **53.5\%** mIoU.
-
-(2) Release pre-trained models for classification and part segmentation in `log/`.
-
-**2021/03/20:** Update codes for classification, including:
-
-(1) Add codes for training **ModelNet10** dataset. Using setting of ``--num_category 10``. 
-
-(2) Add codes for running on CPU only. Using setting of ``--use_cpu``. 
-
-(3) Add codes for offline data preprocessing to accelerate training. Using setting of ``--process_data``. 
-
-(4) Add codes for training with uniform sampling. Using setting of ``--use_uniform_sample``. 
-
-**2019/11/26:**
-
-(1) Fixed some errors in previous codes and added data augmentation tricks. Now classification by only 1024 points can achieve **92.8\%**! 
-
-(2) Added testing codes, including classification and segmentation, and semantic segmentation with visualization. 
-
-(3) Organized all models into `./models` files for easy using.
-
-## Install
-The latest codes are tested on Ubuntu 16.04, CUDA10.1, PyTorch 1.6 and Python 3.7:
-```shell
-conda install pytorch==1.6.0 cudatoolkit=10.1 -c pytorch
+### 创建conda环境
+根据使用的代码git推荐环境，python版本为3.7
 ```
+conda create -n pointnet_env python=3.7
+```
+激活环境
+```
+conda activate pointnet_env
+```
+
+### 安装pytorch
+本机cuda11.1对应pytorch版本：
+```
+pip install torch==1.9.1+cu111 torchvision==0.10.1+cu111 torchaudio==0.9.1 -f https://download.pytorch.org/whl/torch_stable.html
+```
+
+### 其他库安装
+#### 安装【可视化的进度条】库
+```
+pip install tqdm -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+#### 安装 处理h5数据的 库
+```
+pip install h5py -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+#### 安装 tensorboardX 
+```
+pip install tensorboardX -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install tensorboard -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+### Visualization
+多种可视化方式可选。
+（1）Using show3d_balls.py
+（2）本地安装mayavi库和依赖库, 建议选择这一种
+pip install mayavi -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install pyqt5 -i https://pypi.tuna.tsinghua.edu.cn/simple
+（3）#安装open3D
+pip install open3d
+
 
 ## Classification (ModelNet10/40)
 ### Data Preparation
