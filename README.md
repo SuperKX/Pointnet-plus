@@ -40,13 +40,13 @@ pip install tensorboard -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 ### Visualization
 多种可视化方式可选。 
-（1）Using show3d_balls.py
-（2）本地安装mayavi库和依赖库, 建议选择这一种 
+（1）Using show3d_balls.py  
+（2）本地安装mayavi库和依赖库, 建议选择这一种  
 ```
 pip install mayavi -i https://pypi.tuna.tsinghua.edu.cn/simple
 pip install pyqt5 -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
-（3）#安装open3D 
+（3）安装open3D  
 ```
 pip install open3d
 ```
